@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+        "github.com/gosimple/slug"
 )
 
 type Book struct {
@@ -28,10 +30,12 @@ type Book struct {
 	Pages                   string
 	PublishedYear           string
 	OriginalPublicationYear string
+        ReadCount               string
 	ReadDate                string
 	AddDate                 string
 	Bookshelves             string
 	State                   string
+        MyReview                string
 }
 
 func parseBookLine(record []string) Book {
@@ -60,6 +64,7 @@ func parseBookLine(record []string) Book {
 	book.Isbn = strings.TrimLeft(strings.ReplaceAll(record[5], "\"", ""), "=")
 	book.Isbn13 = strings.TrimLeft(strings.ReplaceAll(record[6], "\"", ""), "=")
 	book.MyRating = record[7]
+	book.AvgRating = record[8]
 	book.Publisher = record[9]
 	book.Binding = record[10]
 	book.Pages = record[11]
@@ -68,6 +73,8 @@ func parseBookLine(record []string) Book {
 	book.ReadDate = record[14]
 	book.AddDate = record[15]
 	book.Bookshelves = record[18]
+        book.MyReview = record[19]
+        book.ReadCount = record[22]
 
 	switch record[18] {
 	case "read":
@@ -79,12 +86,6 @@ func parseBookLine(record []string) Book {
 	default:
 		book.State = "TODO"
 
-	}
-
-	if record[18] == "read" {
-
-	} else if record[18] == "to-read" {
-		book.State = "TODO"
 	}
 
 	return book
@@ -123,8 +124,28 @@ func (b Book) ToOrgMode() string {
 	buffer.WriteString(writeString(b.PublishedYear, "Published"))
 	buffer.WriteString(writeString(b.AddDate, "Added"))
 	buffer.WriteString(writeString(b.ReadDate, "Read"))
+	buffer.WriteString(writeString(b.MyRating, "MyRating"))
+	buffer.WriteString(writeString(b.AvgRating, "AvgRating"))
+        slug_filename := slug.Make(fmt.Sprintf("%s_%s", b.Author, b.Title))
+        buffer.WriteString(fmt.Sprintf(":EXPORT_FILE_NAME: %s\n", slug_filename))
+        export_date := b.ReadDate
+        if (export_date == "") {
+            export_date = b.AddDate
+        }
+        export_date = strings.Replace(export_date, "/", "-", -1)
+        buffer.WriteString(fmt.Sprintf(":EXPORT_DATE: %s\n", export_date))
+	buffer.WriteString(":END:\n")
+        isbn := b.Isbn
+        if ( isbn == "" ) {
+            isbn = b.Isbn13
+        }
+        if ( isbn == "" ) {
+            isbn = fmt.Sprintf("%s %s", b.Author, b.Title)
+        }
+        buffer.WriteString(fmt.Sprintf("[[https://www.goodreads.com/search?q=%s][Goodreads page]]\n\n", isbn))
+        buffer.WriteString(fmt.Sprintf("*My rating:* %s out of 5\n\n", b.MyRating))
+        buffer.WriteString(fmt.Sprintf("*My review:*\n%s\n", strings.Replace(b.MyReview, "<br/>", "\n", -1)))
 
-	buffer.WriteString(":END:")
 	return buffer.String()
 }
 
